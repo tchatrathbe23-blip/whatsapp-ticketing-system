@@ -29,9 +29,8 @@ async function sendBot(client, userId, text) {
 wppconnect.create({
   session: 'mySessionName',
   autoClose: 0,
-  options: {
-    headless: true,
-    args: ['--no-sandbox']
+   puppeteerOptions: {
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
   }
 }).then(client => {
   console.log('✅ WhatsApp BOT STARTED successfully');
