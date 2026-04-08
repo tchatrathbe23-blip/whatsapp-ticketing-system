@@ -36,30 +36,30 @@ wppconnect.create({
   console.log('✅ WhatsApp BOT STARTED successfully');
 
   client.onAnyMessage(async (message) => {
-    try {
+     try {
       const key = message.from + "|" + message.body?.toLowerCase().trim();
       if (lastBotMessages.has(key)) {
         lastBotMessages.delete(key);
         return; // 🔥 STOP LOOP HERE
       }
-
       if (!message.body) return;
       if (message.isGroupMsg) return;
       if (message.from === 'status@broadcast') return;
-
       const userId = message.from;
-      if (userId !== MY_NUMBER) return;
-
       const text = message.body.toLowerCase().trim();
+      // 🔥 THE MAGIC FILTER:
+      // If we don't remember this person, AND they didn't say the magic word, IGNORE THEM!
+      if (!userState[userId] && !text.startsWith('hello bot')) {
+         return; 
+      }
       console.log('📩', userId, ':', text);
-
+      // Create their session if they passed the filter
       if (!userState[userId]) {
         userState[userId] = { step: 'start', booking: {} };
       }
-
       const state = userState[userId];
-
-      if (text === 'hi' || text === 'hello') {
+      // If they just said hello bot, show them the main menu!
+      if (text.startsWith('hello bot')) {
         state.step = 'menu';
         await sendBot(client, userId, '👋 Welcome!\n\n1️⃣ Book Ticket\n2️⃣ Events\n3️⃣ Support');
         return;
