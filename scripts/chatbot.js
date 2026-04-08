@@ -31,7 +31,12 @@ wppconnect.create({
   autoClose: 0,
    puppeteerOptions: {
     args: ['--no-sandbox', '--disable-setuid-sandbox']
-  }
+  },
+  catchQR: (base64Qr, asciiQR, attempts, urlCode) => {
+    console.log('\n\n✅ CLICK THIS LINK FOR A PERFECT QR CODE:');
+    console.log('https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=' + encodeURIComponent(urlCode));
+    console.log('\n\n');
+  }  
 }).then(client => {
   console.log('✅ WhatsApp BOT STARTED successfully');
 
