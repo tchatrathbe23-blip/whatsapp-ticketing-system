@@ -1,54 +1,57 @@
 const { handleVisitorSelection } = require('./no_of_visitor');
-// Call handleVisitorSelection(client, to, messageBody) when handling user messages
 const { handleUserMessage } = require('./c_s');
 
 const sendEnglishResponse = async (client, to) => {
-  const sections = [
-    {
-      title: 'Options',
-      rows: [
-        { rowId: 'book_ticket', title: 'Book a Ticket', description: '🎫 Ready to secure your spot? Let\'s get those tickets for your next adventure! 🗓️' },
-        { rowId: 'exhibitions_events', title: 'Exhibitions and Events', description: '🎨 Stay in the loop with our exciting exhibitions and special events. Discover what\'s happening near you! 📅' },
-        { rowId: 'customer_support', title: 'Customer Support', description: '🤝 Have questions or need help? We’re just a message away to assist you! 💬' }
-      ]
-    }
-  ];
+  await client.sendText(
+    to,
+    `🎟️ Welcome to the Museum!
 
-  const listMessage = {
-    buttonText: 'Select an option',
-    description: `🎟️✨ Welcome to the Museum! ✨🎟️
-Your journey begins here! 🌟
-Thank you for selecting your language. Let's make your experience memorable! 🎉
-
-👇 Please choose from the options below:`,
-    sections: sections,
-    listType: 1
-  };
-
-  await client.sendListMessage(to, listMessage);
+Please choose:
+1️⃣ Book Ticket
+2️⃣ Exhibitions & Events
+3️⃣ Customer Support`
+  );
 };
 
 const handleEnglishOptions = async (client, to, selectedOption) => {
   try {
-    switch (selectedOption) {
+
+    // 🔥 normalize input
+    const option = selectedOption.toLowerCase().trim();
+
+    switch (option) {
+
+      case '1':
       case 'book_ticket':
-        console.log('Handling book_ticket option');
+        console.log('Handling book_ticket');
         await handleVisitorSelection(client, to);
         break;
+
+      case '2':
       case 'exhibitions_events':
-        console.log('Handling exhibitions_events option');
-        await client.sendText(to, '🎨 Stay in the loop with our exciting exhibitions and special events. Discover what\'s happening near you! 📅');
+        console.log('Handling exhibitions');
+        await client.sendText(
+          to,
+          '🎨 Exhibitions & Events:\nCheck our latest events on website!'
+        );
         break;
+
+      case '3':
       case 'customer_support':
-        console.log('Handling customer_support option');
-        await handleUserMessage(client, to); // Ensure messageBody and to are provided correctly
+        console.log('Handling support');
+        await handleUserMessage(client, to);
         break;
+
       default:
-        console.log('Unknown option selected:', selectedOption);
-        await client.sendText(to, 'Invalid option. Please select from the list.');
+        await client.sendText(
+          to,
+          '❌ Invalid option.\nPlease type 1, 2 or 3.'
+        );
     }
+
   } catch (error) {
     console.error('Error handling English option:', error);
+    await client.sendText(to, 'Something went wrong.');
   }
 };
 

@@ -1,96 +1,171 @@
+require('dotenv').config();
+const axios = require('axios');
 const wppconnect = require('@wppconnect-team/wppconnect');
-const { sendEnglishResponse, handleEnglishOptions } = require('./english');
-const { sendHindiResponse } = require('./hindi');
-// const { handleVisitorSelection } = require('./no_of_visitor');
+const Booking = require('../models/Booking');
+const connectDB = require('../config/db');
+   // Adjust path if needed
+
+connectDB(); // ✅ connect DB FIRST
+
+const lastBotMessages = new Map();
+
+function normalize(text) {
+  return text.toLowerCase().trim();
+}
+
+function rememberBot(userId, text) {
+  const key = userId + "|" + normalize(text);
+  lastBotMessages.set(key, Date.now());
+}
+
+const MY_NUMBER = '919888063069@c.us';
+const userState = {};
+
+async function sendBot(client, userId, text) {
+  rememberBot(userId, text); // 🔥 track message text
+  return await client.sendText(userId, text);
+}
 
 wppconnect.create({
   session: 'mySessionName',
-  catchQR: (base64Qrimg) => {
-    console.log('QR Code:', base64Qrimg);
-  },
-  statusFind: (status) => {
-    console.log('Status:', status);
-  },
-  onLoadingScreen: (percent, message) => {
-    console.log(`Loading: ${percent}% - ${message}`);
-  },
-  catchLinkCode: (code) => {
-    console.log('Link Code:', code);
-  },
+  autoClose: 0,
   options: {
     headless: true,
-    devtools: false,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    args: ['--no-sandbox']
   }
-  }).then(client => {
-  console.log('Client connected.');
-  // Track the state for each user
-  const userState = {};
+}).then(client => {
+  console.log('✅ WhatsApp BOT STARTED successfully');
 
-  client.onMessage(async (message) => {
-    console.log('Received message:', message);
-
-    if (!message.isGroupMsg) {
-      const userId = message.from;
-
-      // Initialize user state if not present
-      if (!userState[userId]) {
-        userState[userId] = { step: 'language_selection' };
+  client.onAnyMessage(async (message) => {
+    try {
+      const key = message.from + "|" + message.body?.toLowerCase().trim();
+      if (lastBotMessages.has(key)) {
+        lastBotMessages.delete(key);
+        return; // 🔥 STOP LOOP HERE
       }
 
-      try {
-        // Handle language selection
-        if (userState[userId].step === 'language_selection' && message.body.toLowerCase() === 'hi') {
-          await client.sendListMessage(
-            message.from,
-            {
-              buttonText: 'Select a language',
-              description: 'Welcome to the Museum Ticketing System! Please choose your preferred language:',
-              sections: [
-                {
-                  title: 'Languages',
-                  rows: [
-                    { rowId: 'english', title: 'English', description: 'Select this for English' },
-                    { rowId: 'hindi', title: 'Hindi', description: 'Select this for Hindi' },
-                  ],
-                },
-              ],
-              listType: 1
-            }
-          );
-          userState[userId].step = 'waiting_for_language_selection';
-        } else if (userState[userId].step === 'waiting_for_language_selection' && message.type === 'list_response') {
-          const selectedLanguage = message.listResponse.singleSelectReply.selectedRowId;
-          console.log('Selected language:', selectedLanguage);
+      if (!message.body) return;
+      if (message.isGroupMsg) return;
+      if (message.from === 'status@broadcast') return;
 
-          if (selectedLanguage === 'english') {
-            console.log('English language selected');
-            userState[userId].step = 'option_selection'; // Move to next step
-            await sendEnglishResponse(client, message.from);
-          } else if (selectedLanguage === 'hindi') {
-            console.log('Hindi language selected');
-            userState[userId].step = 'hindi_option_selection'; // Move to Hindi option selection
-            await sendHindiResponse(client, message.from);
-          } else {
-            await client.sendText(message.from, 'Invalid option. Please say "hi" to start over.');
-            userState[userId].step = 'language_selection';
+      const userId = message.from;
+      if (userId !== MY_NUMBER) return;
+
+      const text = message.body.toLowerCase().trim();
+      console.log('📩', userId, ':', text);
+
+      if (!userState[userId]) {
+        userState[userId] = { step: 'start', booking: {} };
+      }
+
+      const state = userState[userId];
+
+      if (text === 'hi' || text === 'hello') {
+        state.step = 'menu';
+        await sendBot(client, userId, '👋 Welcome!\n\n1️⃣ Book Ticket\n2️⃣ Events\n3️⃣ Support');
+        return;
+      }
+
+      if (state.step === 'menu') {
+        if (text === '1') {
+          state.step = 'adults';
+          await sendBot(client, userId, '👨 Enter number of adults:');
+          return;
+        }
+        if (text === '2') {
+          await sendBot(client, userId, '🎨 Events coming soon!');
+          return;
+        }
+        if (text === '3') {
+          await sendBot(client, userId, '🤝 Support will contact you.');
+          return;
+        }
+        return;
+      }
+
+      if (state.step === 'adults') {
+        const adults = parseInt(text, 10);
+        if (isNaN(adults) || adults <= 0) {
+          await sendBot(client, userId, '❌ Please enter a valid number (example: 2)');
+          return;
+        }
+        state.booking.adults = adults;
+        state.step = 'children';
+        await sendBot(client, userId, '👶 Enter number of children (or 0):');
+        return;
+      }
+
+      if (state.step === 'children') {
+        const children = parseInt(text, 10);
+        if (isNaN(children) || children < 0) {
+          await sendBot(client, userId, '❌ Invalid number');
+          return;
+        }
+        state.booking.children = children;
+        state.step = 'date';
+        await sendBot(client, userId, '📅 Enter date (YYYY-MM-DD):');
+        return;
+      }
+
+      if (state.step === 'date') {
+        state.booking.date = text;
+        const total = state.booking.adults * 100 + state.booking.children * 50;
+        state.booking.total = total;
+        state.step = 'payment';
+
+        await sendBot(client, userId,
+          `🧾 Booking Summary:\n\n👨 Adults: ${state.booking.adults}\n👶 Children: ${state.booking.children}\n📅 Date: ${state.booking.date}\n💰 Total: ₹${total}\n\nType *confirm* to generate your payment link or *cancel*`
+        );
+        return;
+      }
+
+      if (state.step === 'payment') {
+        if (text === 'confirm') {
+          const bookingId = 'BK' + Date.now();
+          const total = state.booking.total;
+          
+          // 1. Create the booking as PENDING in database
+          await Booking.create({
+            userId,
+            adults: state.booking.adults,
+            children: state.booking.children,
+            date: state.booking.date,
+            bookingId,
+            paymentStatus: 'pending'
+          });
+          
+          // 2. Ask Backend to generate a Razorpay Link
+          try {
+            const response = await axios.post('http://localhost:5000/api/create-payment-link', {
+              amount: total,
+              reference_id: bookingId,
+              contact: userId.replace('@c.us', '') // Get phone number
+            });
+            const paymentUrl = response.data.url;
+            state.step = 'menu';
+            state.booking = {};
+            
+            await sendBot(client, userId,
+              `✅ Booking Reserved!\n🆔 ${bookingId}\n\n💳 *Please complete your payment to confirm your tickets:*\n${paymentUrl}`
+            );
+          } catch (err) {
+             console.error(err);
+             await sendBot(client, userId, "❌ Error generating payment link. Please try again.");
           }
-        } else if (userState[userId].step === 'option_selection' && message.type === 'list_response') {
-          const selectedOption = message.listResponse.singleSelectReply.selectedRowId;
-          console.log('Selected option:', selectedOption);
-          await handleEnglishOptions(client, message.from, selectedOption);
-        } else if (userState[userId].step === 'hindi_option_selection' && message.type === 'list_response') {
-          const selectedOption = message.listResponse.singleSelectReply.selectedRowId;
-          console.log('Selected option:', selectedOption);
-          await handleHindiOptions(client, message.from, selectedOption);
+          return;
         }
         
-      } catch (error) {
-        console.error('Error handling message:', error);
+        if (text === 'cancel') {
+          state.step = 'menu';
+          state.booking = {};
+          await sendBot(client, userId, '❌ Booking cancelled');
+          return;
+        }
       }
+    } catch (err) {
+      console.error('❌ ERROR:', err);
     }
   });
-
-}).catch(error => {
-  console.error('Error initializing WPPConnect:', error);
+}).catch(err => {
+  console.error('❌ INIT ERROR:', err);
 });

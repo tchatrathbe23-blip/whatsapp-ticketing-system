@@ -1,47 +1,72 @@
-let adults = 0;
-let children = 0;
-let userState = {}; // Initialize user state
+const Booking = require('../models/Booking');
 
-const handleVisitorSelection = async (client, to, messageBody) => {
-    await client.sendText(to, 'How many adults will be visiting?');
-const listener = client.onMessage(async (message) => {
-    const to = message.from; // Sender ID
-    console.log('syncing message');
-    console.log('body', message.body);
+// STEP 1: START FLOW
+const handleVisitorSelection = async (client, to, userState) => {
+  userState[to] = { step: 'awaiting_adults' };
 
-    // Retrieve currentStep dynamically from userState every time a message is received
-    const currentStep = userState[to]?.step || 'awaiting_adults'; // Default to awaiting_adults if not set
-
-    if (currentStep === 'awaiting_adults') {
-        const numAdults = parseInt(message.body, 10);
-        console.log('numAdults', numAdults);
-        if (!isNaN(numAdults) && numAdults > 0) {
-            adults = numAdults;
-            console.log('adults', adults);
-            await client.sendText(to, `You have selected ${adults} adult(s). How many children will be visiting?`);
-            userState[to] = { step: 'awaiting_children', adults }; // Update state to awaiting_children
-        } else {
-            await client.sendText(to, 'Please enter a valid number of adults.');
-        }
-    } else if (currentStep === 'awaiting_children') {
-        console.log('in awaiting_children step');
-        const numChildren = parseInt(message.body, 10);
-        if (!isNaN(numChildren) && numChildren >= 0) {
-            children = numChildren;
-            console.log('children', children);
-            await client.sendText(to, `You have selected ${adults} adult(s) and ${children} children.`);
-            await client.sendText(to, 'Visitor selection completed. Thank you!');
-            delete userState[to];
-            // userState[to] = { step: 'completed' }; // Update state to completed
-        } else {
-            await client.sendText(to, 'Please enter a valid number of children.');
-        }
-    }
-    // } else if (currentStep === 'completed') {
-    //     await client.sendText(to, 'Visitor selection completed. Thank you!');
-    //     delete userState[to]; // Clear state after completion
-    // }
-});
+  await client.sendText(to, '👨 How many adults will be visiting?');
 };
 
-module.exports = { handleVisitorSelection };
+// STEP 2: HANDLE FLOW
+const handleVisitorFlow = async (client, message, userState) => {
+  const { from, body } = message;
+  const text = (body || "").trim();
+
+  const state = userState[from];
+  if (!state) return;
+
+  // =============================
+  // STEP 1: ADULTS
+  // =============================
+  if (state.step === 'awaiting_adults') {
+    const adults = parseInt(text, 10);
+
+    if (!isNaN(adults) && adults > 0) {
+      userState[from] = { step: 'awaiting_children', adults };
+
+      await client.sendText(
+        from,
+        `✅ ${adults} adult(s) selected.\n👶 How many children?`
+      );
+    } else {
+      await client.sendText(from, '❌ Enter valid number of adults.');
+    }
+  }
+
+  // =============================
+  // STEP 2: CHILDREN + SAVE DB 🔥
+  // =============================
+  else if (state.step === 'awaiting_children') {
+    const children = parseInt(text, 10);
+
+    if (!isNaN(children) && children >= 0) {
+      const adults = state.adults;
+
+      try {
+        // 🔥 SAVE TO DATABASE
+        await Booking.create({
+          userId: from,
+          adults,
+          children,
+          date: new Date().toISOString().split('T')[0]
+        });
+
+        await client.sendText(
+          from,
+          `🎟️ Booking Confirmed!\n\n👨 Adults: ${adults}\n👶 Children: ${children}\n📅 Date: ${new Date().toISOString().split('T')[0]}`
+        );
+
+      } catch (err) {
+        console.error("❌ DB Error:", err);
+        await client.sendText(from, '❌ Booking failed. Try again.');
+      }
+
+      // 🔁 RESET STATE
+      userState[from] = { step: 'start' };
+    } else {
+      await client.sendText(from, '❌ Enter valid number of children.');
+    }
+  }
+};
+
+module.exports = { handleVisitorSelection, handleVisitorFlow };

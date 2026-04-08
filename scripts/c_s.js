@@ -1,53 +1,54 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-require('dotenv').config(); // Load environment variables
+require('dotenv').config();
 
-// Initialize the Generative AI client
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-// Function to interact with the Generative AI model
+// 🔥 AI function
 async function chatWithAI(userMessage) {
-    try {
-        const prompt = `User asks: ${userMessage}`;
-        const result = await model.generateContent(prompt);
-        const aiResponse = result.response.text();
-        return aiResponse;
-    } catch (error) {
-        console.error('Error communicating with Google Generative AI:', error);
-        throw error;
-    }
+  try {
+    const result = await model.generateContent(userMessage);
+    return result.response.text();
+  } catch (error) {
+    console.error('AI Error:', error);
+    return "❌ AI error occurred.";
+  }
 }
 
-// Function to handle incoming messages and generate AI responses
-function handleUserMessage(client, to) {
-    client.sendText(to, 'You are now connected with AI. Feel free to ask anything! If you want to exit, type *i want to exit*.');
-    const listener = client.onMessage(async (message) => {
-        const { from, body } = message;
+// 🔥 Entry function (JUST SET MODE)
+async function handleUserMessage(client, to, userState) {
+  userState[to] = { step: 'ai_chat' };
 
-        // Ensure the user message is not empty
-        if (from === to && body.trim()) {
-            // Check if the user wants to exit the loop
-            if (body.toLowerCase().includes('i want to exit')) {
-                await client.sendText(from, 'Thank you for chatting! Goodbye. 👋');
-                listener.dispose();
-                return; // Exit the loop, no more responses
-            }
-
-            console.log('Processing message:', body);
-            try {
-                // Inform the user that the AI is processing their message
-                await client.sendText(from, 'Processing your query...');
-
-                // Get AI response for the user message
-                const aiReply = await chatWithAI(body);
-
-                // Send AI's response back to the user
-                await client.sendText(from, aiReply);
-            } catch (error) {
-                await client.sendText(from, 'Sorry, something went wrong with AI chat.');
-            }
-        }
-    });
+  await client.sendText(
+    to,
+    "🤖 You are now connected with AI.\n\nType anything to chat.\nType 'exit' to stop."
+  );
 }
 
-module.exports = { handleUserMessage };
+// 🔥 AI message handler (called from chatbot.js)
+async function handleAIChat(client, message, userState) {
+  const { from, body } = message;
+
+  const text = (body || "").toLowerCase().trim();
+
+  // exit condition
+  if (text === 'exit') {
+    userState[from] = { step: 'start' };
+
+    await client.sendText(from, "👋 Exited AI mode. Type 'hi' to start again.");
+    return;
+  }
+
+  try {
+    await client.sendText(from, "⏳ Thinking...");
+
+    const reply = await chatWithAI(body);
+
+    await client.sendText(from, reply);
+
+  } catch (err) {
+    await client.sendText(from, "❌ AI failed.");
+  }
+}
+
+module.exports = { handleUserMessage, handleAIChat };
