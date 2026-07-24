@@ -14,6 +14,9 @@
     "socket.io": "^4.8.3"
   },
   "scripts": {
-    "start": "node server.js & node scripts/chatbot.js"
+    "start": "node server.js & node scripts/chatbot.js",
+    "test:backend": "node --test --experimental-test-isolation=none tests/backend.test.js",
+    "test:chatbot": "node --test --experimental-test-isolation=none tests/chatbot.test.js",
+    "test": "node --test --experimental-test-isolation=none tests/backend.test.js tests/chatbot.test.js"
   }
 }
