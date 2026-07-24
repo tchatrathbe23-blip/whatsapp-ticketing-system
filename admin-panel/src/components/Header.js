@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-export default function Header({ onLogout }) {
+export default function Header({ onLogout, isConnected = false }) {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
@@ -16,6 +16,12 @@ export default function Header({ onLogout }) {
       </div>
 
       <div className="header-right">
+        {/* 🔴 Live connection status indicator */}
+        <div className={`live-badge ${isConnected ? "live-badge--on" : "live-badge--off"}`}>
+          <span className="live-dot"></span>
+          {isConnected ? "Live" : "Offline"}
+        </div>
+
         <div className="header-badge">Admin</div>
         <button className="theme-btn" onClick={() => setDark(!dark)}>
           {dark ? "☀️ Light" : "🌙 Dark"}
@@ -27,3 +33,4 @@ export default function Header({ onLogout }) {
     </div>
   );
 }
+

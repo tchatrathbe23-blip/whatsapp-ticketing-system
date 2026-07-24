@@ -30,6 +30,20 @@ app.use(express.json());
 // 📦 ROUTES
 app.use('/api/bookings', require('./routes/bookingRoutes'));
 
+// ═══════════════════════════════════════════════════════════════
+//  🔴 SOCKET BRIDGE — called by chatbot.js (separate process)
+//     chatbot.js can't access global.io directly, so it HTTP-POSTs
+//     here and the server re-emits the socket event.
+// ═══════════════════════════════════════════════════════════════
+app.post('/internal/new-booking', (req, res) => {
+  const { booking } = req.body;
+  if (booking) {
+    global.io.emit('new_booking', booking);
+    console.log(`📡 Emitted new_booking to dashboard: ${booking.bookingId}`);
+  }
+  res.sendStatus(200);
+});
+
 // ─── OTP & RESET TOKEN STORE (in-memory) ────────────────────
 let otpStore = {};       // { email: { otp, expiresAt } }
 let resetTokenStore = {}; // { token: { email, expiresAt } }
@@ -46,6 +60,39 @@ const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY,
   key_secret: process.env.RAZORPAY_SECRET
 });
+
+// Get Razorpay Key for Dashboard
+app.get("/razorpay-key", (req, res) => {
+  res.json({ key: process.env.RAZORPAY_KEY });
+});
+
+// Create Razorpay Order for Dashboard manual payment
+app.post("/create-order", async (req, res) => {
+  try {
+    // Guard: ensure keys are configured
+    if (!process.env.RAZORPAY_KEY || !process.env.RAZORPAY_SECRET) {
+      return res.status(500).json({ message: "Razorpay credentials not configured on server." });
+    }
+
+    const { amount } = req.body;
+    if (!amount || isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ message: "Invalid amount provided." });
+    }
+
+    const order = await razorpay.orders.create({
+      amount: Math.round(amount * 100), // paise, must be integer
+      currency: "INR",
+      receipt: "order_rcptid_" + Date.now()
+    });
+    res.json(order);
+  } catch (err) {
+    // Surface the real Razorpay error so it's visible in browser + logs
+    const razorError = err?.error?.description || err?.message || "Failed to create order";
+    console.error("Razorpay Order Creation Error:", JSON.stringify(err?.error || err));
+    res.status(500).json({ message: razorError });
+  }
+});
+
 
 
 // ═══════════════════════════════════════════════════════════════
@@ -97,6 +144,10 @@ app.post("/api/webhook", async (req, res) => {
       );
       
       console.log(`✅ Payment received and saved in DB for booking: ${bookingId}`);
+
+      // 🔴 Push real-time update to admin dashboard
+      global.io.emit('booking_paid', { bookingId });
+      console.log(`📡 Emitted booking_paid to dashboard: ${bookingId}`);
     } catch (err) {
       console.error("Webhook DB Update Error:", err);
     }
@@ -234,15 +285,19 @@ app.post("/reset-password", async (req, res) => {
 });
 
 // 🚀 START SERVER
-const PORT = process.env.PORT || 5000;
+if (process.env.NODE_ENV !== 'test') {
+  const PORT = process.env.PORT || 5000;
 
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
+  server.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  });
 
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} is already in use.`);
-    process.exit(1);
-  }
-});
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is already in use.`);
+      process.exit(1);
+    }
+  });
+}
+
+module.exports = { app, server };
