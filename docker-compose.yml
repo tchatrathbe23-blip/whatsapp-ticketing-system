@@ -1,0 +1,34 @@
+services:
+  app:
+    build: .
+    container_name: whatsapp-ticketing-bot
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MONGO_URI=mongodb://mongo:27017/whatsapp-tickets
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - RAZORPAY_KEY=${RAZORPAY_KEY}
+      - RAZORPAY_SECRET=${RAZORPAY_SECRET}
+      - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      # Persist WhatsApp authentication session data across container restarts
+      - whatsapp_tokens:/app/tokens
+      - whatsapp_session:/app/userDataDir
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:7
+    container_name: mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  whatsapp_tokens:
+  whatsapp_session:
+  mongo_data:

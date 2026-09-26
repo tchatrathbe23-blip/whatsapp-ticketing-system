@@ -74,7 +74,13 @@ wppconnect.create({
   session: 'mySessionName',
   autoClose: 0,
   puppeteerOptions: {
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu'
+    ]
   },
 }).then(client => {
   console.log('✅ WhatsApp BOT STARTED successfully');

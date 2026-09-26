@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log
+.env
+.git
+.gitignore
+tokens
+userDataDir
+admin-panel/node_modules
+admin-panel/build
+.DS_Store
+*.log
