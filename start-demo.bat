@@ -12,8 +12,8 @@ start "WhatsApp Bot & Backend" cmd /k "set PORT=5050 && node server.js & node sc
 
 timeout /t 3 /nobreak > nul
 
-echo 2. Starting Cloudflare Public Tunnel (HTTP/2)...
-start "Cloudflare Tunnel" cmd /k "cloudflared.exe tunnel --protocol http2 --url http://localhost:5050"
+echo 2. Starting Cloudflare Public Tunnel (IPv4 + HTTP/2)...
+start "Cloudflare Tunnel" cmd /k "cloudflared.exe tunnel --edge-ip-version 4 --protocol http2 --url http://localhost:5050"
 
 echo.
 echo ===================================================
