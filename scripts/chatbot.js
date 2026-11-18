@@ -91,7 +91,10 @@ wppconnect.create({
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
-      '--disable-gpu'
+      '--disable-gpu',
+      '--disable-extensions',
+      '--no-zygote',
+      '--disable-software-rasterizer'
     ]
   },
 }).then(client => {

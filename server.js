@@ -357,10 +357,10 @@ app.post("/reset-password", async (req, res) => {
 
 // 🚀 START SERVER
 if (process.env.NODE_ENV !== 'test') {
-  const PORT = process.env.PORT || 5000;
+  const PORT = process.env.PORT || 10000;
 
-  server.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
   });
 
   server.on('error', (err) => {

@@ -14,7 +14,8 @@ RUN apt-get update && apt-get install -y wget gnupg ca-certificates --no-install
 # Skip Puppeteer's built-in Chromium download and point to installed Google Chrome
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable \
-    NODE_ENV=production
+    NODE_ENV=production \
+    PORT=10000
 
 # Set working directory
 WORKDIR /app
@@ -29,7 +30,7 @@ RUN npm ci --omit=dev || npm install --omit=dev
 COPY . .
 
 # Expose backend port
-EXPOSE 5000
+EXPOSE 10000
 
 # Start both Express server and WhatsApp chatbot
 CMD ["npm", "start"]
