@@ -1,35 +1,37 @@
 @echo off
 title WhatsApp Ticketing System - Launcher
 echo ===================================================
-echo   Starting WhatsApp Ticketing System Demo
+echo   WhatsApp Ticketing System - Permanent Setup
+echo   URL: https://boxcar-sanctity-research.ngrok-free.dev
 echo ===================================================
 echo.
 
 cd /d "%~dp0"
 
-echo 1. Starting Backend & WhatsApp Bot on port 5050...
-start "WhatsApp Bot & Backend" cmd /k "set PORT=5050 && node server.js & node scripts/chatbot.js"
+echo 1. Starting Backend API Server (Port 5050)...
+start "1. Backend Server" cmd /k "set PORT=5050 && node server.js"
 
-timeout /t 3 /nobreak > nul
+timeout /t 2 /nobreak > nul
 
-echo 2. Starting Cloudflare Public Tunnel (IPv4 + HTTP/2)...
-start "Cloudflare Tunnel" cmd /k "cloudflared.exe tunnel --edge-ip-version 4 --protocol http2 --url http://localhost:5050"
+echo 2. Starting WhatsApp Bot (WPPConnect)...
+start "2. WhatsApp Bot" cmd /k "set PORT=5050 && node scripts/chatbot.js"
+
+timeout /t 2 /nobreak > nul
+
+echo 3. Starting Permanent Tunnel (ngrok)...
+start "3. Permanent Public Tunnel" cmd /k "ngrok.exe http 5050 --url=boxcar-sanctity-research.ngrok-free.dev --authtoken=3MHDXgQ0rd8LbWiMSP3Wyz5LpgL_68n7fzqm2iwaYx2cj6h7w"
 
 echo.
 echo ===================================================
-echo [!] Two windows have opened:
-echo     1. "WhatsApp Bot & Backend":
-echo        - Connects to MongoDB
-echo        - Generates the WhatsApp QR code
-echo        - You can also view the QR code in your browser:
-echo          http://localhost:5050/qr
+echo [!] ALL 3 SERVICES STARTED!
 echo.
-echo     2. "Cloudflare Tunnel":
-echo        - Look for the line:
-echo          https://xxxx.trycloudflare.com
-echo        - Copy that HTTPS URL!
-echo        - Go to Vercel -> Settings -> Environment Variables
-echo        - Set REACT_APP_BACKEND_URL to that URL
-echo        - Redeploy on Vercel
+echo     Your Permanent Backend URL is:
+echo     👉 https://boxcar-sanctity-research.ngrok-free.dev
+echo.
+echo     Set this ONCE in Vercel:
+echo     REACT_APP_BACKEND_URL = https://boxcar-sanctity-research.ngrok-free.dev
+echo.
+echo     Scan the QR code in the Chrome window or at:
+echo     http://localhost:5050/qr
 echo ===================================================
 pause

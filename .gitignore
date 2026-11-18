@@ -4,3 +4,5 @@ build
 tokens/
 cloudflared.exe
 userDataDir/
+ngrok.exe
+ngrok.yml
