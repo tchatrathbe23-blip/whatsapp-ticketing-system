@@ -71,9 +71,12 @@ async function onConfirm(client, userId, state, sendBot) {
   }
 }
 
+const isDocker = Boolean(process.env.PUPPETEER_EXECUTABLE_PATH);
+
 wppconnect.create({
   session: 'mySessionName',
   autoClose: 0,
+  headless: isDocker,
   catchQR: (base64Qr, asciiQR, attempts) => {
     console.log(asciiQR);
     console.log(`[QR CODE GENERATED - Attempt ${attempts}] View in browser at ${SERVER_URL}/qr`);
@@ -87,15 +90,13 @@ wppconnect.create({
   },
   puppeteerOptions: {
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-    args: [
+    args: isDocker ? [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
-      '--disable-extensions',
-      '--no-zygote',
-      '--disable-software-rasterizer'
-    ]
+      '--disable-extensions'
+    ] : []
   },
 }).then(client => {
   console.log('✅ WhatsApp BOT STARTED successfully');
