@@ -8,7 +8,8 @@ const { handleMessage } = require('./chatbot.logic');
 connectDB(); // ✅ Connect DB first
 
 const userState = {};
-const SERVER_URL = process.env.SERVER_URL || 'http://localhost:5000';
+const PORT = process.env.PORT || 5000;
+const SERVER_URL = process.env.SERVER_URL || `http://localhost:${PORT}`;
 
 /**
  * Real payment handler injected into the state machine.
@@ -73,6 +74,17 @@ async function onConfirm(client, userId, state, sendBot) {
 wppconnect.create({
   session: 'mySessionName',
   autoClose: 0,
+  catchQR: (base64Qr, asciiQR, attempts) => {
+    console.log(asciiQR);
+    console.log(`[QR CODE GENERATED - Attempt ${attempts}] View in browser at ${SERVER_URL}/qr`);
+    axios.post(`${SERVER_URL}/internal/qr`, { qr: base64Qr }).catch(() => {});
+  },
+  statusFind: (statusSession, session) => {
+    console.log(`[WhatsApp Session Status]: ${statusSession}`);
+    if (statusSession === 'isLogged' || statusSession === 'inChat') {
+      axios.post(`${SERVER_URL}/internal/qr`, { status: statusSession }).catch(() => {});
+    }
+  },
   puppeteerOptions: {
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     args: [

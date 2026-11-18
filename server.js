@@ -27,6 +27,77 @@ connectDB();
 app.use(cors());
 app.use(express.json());
 
+// 🩺 HEALTH CHECKS
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'WhatsApp Ticketing API is running' });
+});
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+// 📱 WHATSAPP QR DISPLAY
+let latestQr = null;
+let botStatus = 'Initializing...';
+
+app.post('/internal/qr', (req, res) => {
+  if (req.body.qr) {
+    latestQr = req.body.qr;
+    botStatus = 'Awaiting QR Scan';
+  }
+  if (req.body.status) {
+    botStatus = req.body.status;
+    if (req.body.status === 'isLogged' || req.body.status === 'inChat') {
+      latestQr = null;
+    }
+  }
+  res.sendStatus(200);
+});
+
+app.get('/qr', (req, res) => {
+  if (botStatus === 'isLogged' || botStatus === 'inChat') {
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>WhatsApp Bot Status</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+      <body style="font-family:sans-serif;text-align:center;padding:50px;background:#f0f2f5;">
+        <div style="background:white;padding:30px;border-radius:12px;max-width:400px;margin:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+          <h2 style="color:#25D366;margin-top:0;">✅ WhatsApp Connected!</h2>
+          <p style="color:#555;">Bot is active and logged in.</p>
+        </div>
+      </body>
+      </html>
+    `);
+  }
+  if (!latestQr) {
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>WhatsApp QR Code</title><meta http-equiv="refresh" content="5"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+      <body style="font-family:sans-serif;text-align:center;padding:50px;background:#f0f2f5;">
+        <div style="background:white;padding:30px;border-radius:12px;max-width:400px;margin:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+          <h2>Status: ${botStatus}</h2>
+          <p style="color:#666;">Generating QR code... Page will refresh automatically.</p>
+        </div>
+      </body>
+      </html>
+    `);
+  }
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head><title>Scan WhatsApp QR Code</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+    <body style="font-family:sans-serif;text-align:center;padding:50px;background:#f0f2f5;">
+      <div style="background:white;padding:30px;border-radius:12px;max-width:400px;margin:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+        <h2 style="margin-top:0;">Scan with WhatsApp</h2>
+        <p style="color:#555;font-size:14px;">Open WhatsApp &gt; Settings / Menu &gt; <b>Linked Devices</b> &gt; Link a Device</p>
+        <img src="${latestQr}" style="width:260px;height:260px;border-radius:8px;border:1px solid #eee;" />
+        <p style="font-size:12px;color:#888;margin-top:15px;">Page will update when connected.</p>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
 // 📦 ROUTES
 app.use('/api/bookings', require('./routes/bookingRoutes'));
 
