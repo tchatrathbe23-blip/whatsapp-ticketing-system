@@ -285,6 +285,63 @@ app.post("/login", async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════
+//  🌐 GOOGLE OAUTH LOGIN / SIGNUP
+// ═══════════════════════════════════════════════════════════════
+
+app.post("/google-login", async (req, res) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) {
+      return res.status(400).json({ message: "Google credential token is required" });
+    }
+
+    // Verify token with Google OAuth TokenInfo endpoint
+    const googleRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
+    if (!googleRes.ok) {
+      const errData = await googleRes.json().catch(() => ({}));
+      return res.status(401).json({ message: errData.error_description || "Invalid Google token" });
+    }
+
+    const payload = await googleRes.json();
+    const { email, name, sub: googleId, picture: avatar } = payload;
+
+    if (!email) {
+      return res.status(400).json({ message: "Unable to retrieve email from Google account" });
+    }
+
+    let user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      user = await User.create({
+        name: name || email.split('@')[0],
+        email: email.toLowerCase().trim(),
+        googleId,
+        avatar
+      });
+      console.log(`✅ New user registered via Google: ${user.email}`);
+    } else {
+      if (!user.googleId) {
+        user.googleId = googleId;
+        if (avatar) user.avatar = avatar;
+        await user.save();
+      }
+      console.log(`✅ User logged in via Google: ${user.email}`);
+    }
+
+    const token = jwt.sign(
+      { userId: user._id, email: user.email },
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: '7d' }
+    );
+
+    res.json({ token, name: user.name, email: user.email, avatar: user.avatar });
+  } catch (err) {
+    console.error("Google Auth error:", err.message);
+    res.status(500).json({ message: "Google authentication failed. Please try again." });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
 //  🔑 FORGOT PASSWORD FLOW
 // ═══════════════════════════════════════════════════════════════
 
